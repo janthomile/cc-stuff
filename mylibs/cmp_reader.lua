@@ -38,7 +38,7 @@ function cmp_reader.draw_htable(htable,x,y,colorTable)
 end
 
 -- Assumes buffer is a table of string chars
-function cmp_reader.buffer_to_img(buffer,width,height)
+function cmp_reader.str_buffer_to_img(buffer,width,height)
     local imgTable = {}
     for y=1,height do
         table.insert(imgTable,table.concat(buffer,"",1+width*(y-1),width*y))
@@ -48,6 +48,15 @@ function cmp_reader.buffer_to_img(buffer,width,height)
 end
 
 -- Assumes buffer is a table of string chars
+function cmp_reader.buffer_to_img(buffer,width,height)
+    local imgTable = {}
+    for y=1,height do
+        table.insert(imgTable,{table.unpack(buffer,1+width*(y-1),width*y)})
+    end
+    return imgTable
+end
+
+-- Assumes buffer is a table of tables of ints
 function cmp_reader.draw_buffer(htable,buffer,screenWidth,coordX,coordY,colorTable)
     for i=1,#htable do
         local h = htable[i]
@@ -56,7 +65,7 @@ function cmp_reader.draw_buffer(htable,buffer,screenWidth,coordX,coordY,colorTab
             local color = colorTable[h[j+1]]
             local len = h[j]
             for k=1,len do
-                if not (color == " ") then
+                if (color > 0) then
                     local idx = (x+k)+(y*screenWidth)
                     buffer[idx] = color
                 end
