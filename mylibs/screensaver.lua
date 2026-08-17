@@ -1,19 +1,25 @@
 local cmp_reader = require("cmp_reader")
 --
 local heart = cmp_reader.get_table("heart.cmp")
-local colorTable = {[0]=-1,[1]=colors.yellow,[2]=colors.red}
+local colorTable = {[0]=" ",[1]="4",[2]="e"}
 --
-local sleepTime = 0.05
+local calcRate = 0.01
+local drawRate = 1.0/60.0
 local monitor = peripheral.find("monitor")
 if not monitor then error("No monitors found!",0) return end
 local monitorSize = {x=1,y=1} monitorSize.x,monitorSize.y = monitor.getSize()
 local monitorPixels = monitorSize.x*monitorSize.y
 local colorList = {0xFFFFFF,0xFFAA00,0xFF00FF,0x00FFFF,0xFFFF00,0x55FF00,0xFFB5B5,0x4C4C4C,0x999999,0x00FFFF,0xAA00FF,0x0000FF,0x7F664C,0x99FF99,0xFF0000,0x000000}
+local bufferOne = {}
 --
 local size = {x=26,y=24}
 local pos = {x=math.random(1,monitorSize.x-size.x),y=math.random(1,monitorSize.y-size.y)}
 local vel = {x=1,y=1}
 --
+
+for i=1,monitorPixels do
+    bufferOne[i]=" "
+end
 
 local function sim()
 	local newX,newY = pos.x+vel.x,pos.y+vel.y
@@ -34,12 +40,13 @@ local function getWave(x)
     return sinw
 end
 
+-- Returns string ID
 local function getPixelColor(size,x,y)
     local wave = size.y*getWave(x)
     local abs = math.abs(y-wave)
-    if abs < 2 then return colors.red
-    elseif abs < 4 then return colors.yellow
-    else return colors.black end
+    if abs < 2 then return "e"
+    elseif abs < 4 then return "4"
+    else return " " end
 end
 
 local function setColors(monitor,colorList)
@@ -49,21 +56,38 @@ local function setColors(monitor,colorList)
     end
 end
 
+local function calculate()
+    while true do
+        for i=1,monitorPixels do
+            local x,y = ((i-1)%monitorSize.x),math.floor(i/monitorSize.x)
+            bufferOne[i]=getPixelColor(monitorSize,x,y)
+        end
+        cmp_reader.draw_buffer(heart,bufferOne,monitorSize.x,pos.x,pos.y,colorTable)
+        sim()
+        sleep(calcRate)
+    end
+end
+
 local function draw()
     term.redirect(monitor)
     while true do
         monitor.clear()
-        for i=1,monitorPixels do
-            local x,y = i%monitorSize.x,math.floor(i/monitorSize.x)
-            paintutils.drawPixel(x,y,getPixelColor(monitorSize,x,y))
-        end
-        cmp_reader.draw_htable(heart,pos.x,pos.y,colorTable)
-        sim()
-        sleep(sleepTime)
+        paintutils.drawImage(cmp_reader.buffer_to_img(bufferOne,monitorSize.x,monitorSize.y),1,1)
+        -- for i=1,monitorPixels do
+        --     local x,y = i%monitorSize.x,math.floor(i/monitorSize.x)
+        --     paintutils.drawPixel(x,y,getPixelColor(monitorSize,x,y))
+        -- end
+        -- cmp_reader.draw_htable(heart,pos.x,pos.y,colorTable)
+        sleep(drawRate)
         monitor.setBackgroundColor(colors.black)
     end
 end
 
 monitor.setTextScale(0.5)
 setColors(monitor,colorList)
-draw()
+
+parallel.waitForAll(
+    draw,
+    calculate
+)
+-- draw()
