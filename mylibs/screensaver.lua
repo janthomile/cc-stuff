@@ -1,5 +1,8 @@
 local cmp_reader = require("cmp_reader")
 --
+local heart = cmp_reader.get_table("heart.cmp")
+local colorTable = {[0]=-1,[1]=colors.yellow,[2]=colors.red}
+--
 local sleepTime = 0.05
 local monitor = peripheral.find("monitor")
 if not monitor then error("No monitors found!",0) return end
@@ -54,7 +57,7 @@ local function draw()
             local x,y = i%monitorSize.x,math.floor(i/monitorSize.x)
             paintutils.drawPixel(x,y,getPixelColor(monitorSize,x,y))
         end
-        cmp_reader.draw_htable(t,pos.x,pos.y,colorTable)
+        cmp_reader.draw_htable(heart,pos.x,pos.y,colorTable)
         sim()
         sleep(sleepTime)
         monitor.setBackgroundColor(colors.black)
