@@ -1,9 +1,9 @@
 local cmp_reader = require("cmp_reader")
 --
 local sleepTime = 0.05
-local monitors = {peripheral.find("monitor")}
-if not monitors then error("No monitors found!",0) return end
-local monitorSize = {x=1,y=1} monitorSize.x,monitorSize.y = monitors[1].getSize()
+local monitor = peripheral.find("monitor")
+if not monitor then error("No monitors found!",0) return end
+local monitorSize = {x=1,y=1} monitorSize.x,monitorSize.y = monitor.getSize()
 local monitorPixels = monitorSize.x*monitorSize.y
 local colorList = {0xFFFFFF,0xFFAA00,0xFF00FF,0x00FFFF,0xFFFF00,0x55FF00,0xFFB5B5,0x4C4C4C,0x999999,0x00FFFF,0xAA00FF,0x0000FF,0x7F664C,0x99FF99,0xFF0000,0x000000}
 --
@@ -39,8 +39,14 @@ local function getPixelColor(size,x,y)
     else return colors.black end
 end
 
+local function setColors(monitor,colorList)
+    local bshift = bit32.lshift
+    for c=1,#colorList do
+        monitor.setPaletteColor(bshift(1,c-1),colorList[c])
+    end
+end
+
 local function draw()
-    local monitor = monitors[1]
     term.redirect(monitor)
     while true do
         monitor.clear()
@@ -55,6 +61,6 @@ local function draw()
     end
 end
 
-draw_grid:setTextScale(monitors,0.5)
-draw_grid:setColors(monitors,colorList)
+monitor.setTextScale(0.5)
+setColors(monitor,colorList)
 draw()
