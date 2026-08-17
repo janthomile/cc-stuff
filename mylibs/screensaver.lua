@@ -32,8 +32,8 @@ local function getWave(x)
 end
 
 local function getPixelColor(size,x,y)
-    local abs = math.abs(y-wave)
     local wave = size.y*getWave(x)
+    local abs = math.abs(y-wave)
     if abs < 2 then return colors.red
     elseif abs < 4 then return colors.yellow
     else return colors.black end
