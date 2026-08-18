@@ -33,10 +33,9 @@ local function sim()
 	pos.y = pos.y + vel.y
 end
 
-local function getWave(x,time)
-    time = time or 1.0
+local function getWave(x)
     local sin = math.sin
-    local offset = os.time()*100.0*time
+    local offset = os.time()*100.0
     local freq = 0.05
     local amp = 0.25
     local y_offset = 0.5
@@ -54,21 +53,21 @@ end
 
 -- Returns string ID
 local function getPixelColor(size,x,y)
-    local wave1 = math.abs(y-size.y*(getWave(-x*0.75)+0.33))*0.33 - 1
-    local wave2 = math.abs(y-size.y*(getWave(-x*0.75+321)-0.33))*0.33 - 1
-    local wave3 = math.abs(y-size.y*(getWave(x+111,0.5)))*0.75
-    if (wave3 < 1) then return colors.red
-    elseif (wave3 < 2) then return colors.orange
-    elseif (wave3 < 3) then return colors.yellow
+    local wave1 = math.abs(y-size.y*(getWave(x)))*0.33
+    local wave2 = math.abs(y-size.y*(getWave(x+321)))*0.33
+    -- local wave3 = math.abs(y-size.y*(getWave(-x+111)))*0.75
+    -- if (wave3 < 1) then return colors.red
+    -- elseif (wave3 < 2) then return colors.orange
+    -- elseif (wave3 < 3) then return colors.yellow
     --
-    elseif (wave1 < 1) or (wave2 < 1) then return colors.black
-    elseif (wave1 < 2) or (wave2 < 2) then return colors.gray
-    elseif (wave1 < 3) or (wave2 < 3) then return colors.lightGray
-    elseif (wave1 < 4) or (wave2 < 4) then return colors.white
-    elseif (wave1 < 5) or (wave2 < 5) then return colors.lightGray
-    elseif (wave1 < 6) or (wave2 < 6) then return colors.gray
-    elseif (wave1 < 7) or (wave2 < 7) then return colors.black
-    else return colors.black end
+    if (wave1 < 1) or (wave2 < 1) then return colors.red
+    elseif (wave1 < 2) or (wave2 < 2) then return colors.yellow
+    -- elseif (wave1 < 3) or (wave2 < 3) then return colors.lightGray
+    -- elseif (wave1 < 4) or (wave2 < 4) then return colors.white
+    -- elseif (wave1 < 5) or (wave2 < 5) then return colors.lightGray
+    -- elseif (wave1 < 6) or (wave2 < 6) then return colors.gray
+    -- elseif (wave1 < 7) or (wave2 < 7) then return colors.black
+    else return -1 end
 end
 
 local function setColors(monitor,colorList)
@@ -103,10 +102,10 @@ end
 
 local function draw()
     term.redirect(monitor)
-    monitor.clear()
-    monitor.setBackgroundColor(colors.black)
     while true do
+        monitor.clear()
         paintutils.drawImage(cmp_reader.buffer_to_img(bufferCurrent,monitorSize.x,monitorSize.y),1,1)
+        monitor.setBackgroundColor(colors.black)
         sleep(drawRate)
     end
 end
