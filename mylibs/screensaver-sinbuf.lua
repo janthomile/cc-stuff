@@ -10,6 +10,7 @@ if not monitor then error("No monitors found!",0) return end
 local monitorSize = {x=1,y=1} monitorSize.x,monitorSize.y = monitor.getSize()
 local monitorPixels = monitorSize.x*monitorSize.y
 local colorList = {0xFFFFFF,0xFFAA00,0xFF00FF,0x00FFFF,0xFFDF00,0x55FF00,0xFFB5B5,0x4C4C4C,0x999999,0x00FFFF,0xAA00FF,0x0000FF,0x7F664C,0x99FF99,0xFF0000,0x000000}
+local sinTable = {}
 local bufferCurrent = {}
 local bufferNext = {}
 --
@@ -33,15 +34,11 @@ local function sim()
 	pos.y = pos.y + vel.y
 end
 
-local function getWave(x)
-    local sin = math.sin
-    local offset = os.time()*100.0
-    local freq = 0.05
-    local amp = 0.25
-    local y_offset = 0.5
-    local count = 2
-    local sinw = ((sin(x*freq+offset)+sin((x*freq+offset*2)*2))/count)*amp + y_offset
-    return sinw
+local function getWave(x,offset)
+    local speed = 1000.0
+    local offset = x+math.floor(os.time()*speed)
+    local offsetb = offset*3 + math.floor(os.time()*speed*4.15)
+    return (sinTable[((offset)%#sinTable)+1] + sinTable[((offsetb)%#sinTable)+1])*0.5
 end
 
 -- Defaults: 5.0,100,0.05,0.25
@@ -53,21 +50,17 @@ end
 
 -- Returns string ID
 local function getPixelColor(size,x,y)
-    local wave1 = math.abs(y-size.y*(getWave(x)))*0.33
-    local wave2 = math.abs(y-size.y*(getWave(x+321)))*0.33
-    -- local wave3 = math.abs(y-size.y*(getWave(-x+111)))*0.75
-    -- if (wave3 < 1) then return colors.red
-    -- elseif (wave3 < 2) then return colors.orange
-    -- elseif (wave3 < 3) then return colors.yellow
-    --
-    if (wave1 < 1) or (wave2 < 1) then return colors.red
-    elseif (wave1 < 2) or (wave2 < 2) then return colors.yellow
-    -- elseif (wave1 < 3) or (wave2 < 3) then return colors.lightGray
-    -- elseif (wave1 < 4) or (wave2 < 4) then return colors.white
-    -- elseif (wave1 < 5) or (wave2 < 5) then return colors.lightGray
-    -- elseif (wave1 < 6) or (wave2 < 6) then return colors.gray
-    -- elseif (wave1 < 7) or (wave2 < 7) then return colors.black
+    local wave = size.y*getWave(x)
+    local wavea = size.y*getWave(x+20)
+    local abs = math.abs(y-wave)
+    local absa = math.abs(y-wavea)
+    if (abs < 1) or (absa < 1) then return colors.red
+    elseif (abs < 2) or (absa < 2) then return colors.orange
+    elseif (abs < 3) or (absa < 3) then return colors.yellow
     else return -1 end
+end
+
+local function drawWaveRegion(x,y,w,h)
 end
 
 local function setColors(monitor,colorList)
@@ -110,6 +103,8 @@ local function draw()
     end
 end
 
+genSinTable(5.0,monitorSize.x,0.05,0.25)
+-- genSinTable(5.0,monitorSize.x,0.05,0.25)
 clearBuffers()
 monitor.setTextScale(0.5)
 setColors(monitor,colorList)
@@ -118,3 +113,4 @@ parallel.waitForAll(
     draw,
     calculate
 )
+-- draw()
