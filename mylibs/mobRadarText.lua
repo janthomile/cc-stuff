@@ -2,11 +2,15 @@ local ownerName = "Spommicus"
 -- Performance variables
 local scanDelay = 0.2 -- Delay between scans. Note that there is a hard limit based on server "energy" config.
 local drawDelay = 0.05 -- Delay between redraws.
-local pingCount = 32 -- Maximum pings to be displayed
+local pingCount = 64 -- Maximum pings to be displayed
 -- Primary references
 local mod = peripheral.find("neuralInterface")
 local canvas = mod.canvas()
 local canvasSize = {x,y} canvasSize.x,canvasSize.y = canvas.getSize()
+local nameRemap = {
+    ["Item Frame"]="IFrame",
+    ["Glass Item Frame"]="GIFrame"
+}
 -- Gotta put hex here for the next vars
 local function getHex(r,g,b,a)
     return (r*0x1000000)+(g*0x10000)+(b*0x100)+a
@@ -16,11 +20,13 @@ local radarZoom = 2.0
 local compassResolution = 32
 local compassRadius = 48
 local compassPos = {x=compassRadius+8,y=compassRadius+8}
+local n,s,e,w = nil
 local crosshairWidth = 0.5
 local crosshairSize = 3.0
 local crosshairColor = getHex(255,255,255,128)
 local pings = {}
 local mobs = {}
+local prevMobCount = 0
 local nameColor = 0xFFFFFFBB
 local pingScale = 0.33
 local format = "%s\n%+.1f"
@@ -62,7 +68,10 @@ local function drawCompass()
     local outer = canvas.addPolygon(table.unpack(getCircle(compassResolution,compassPos,compassRadius,0xFFFFFF22)))
     local inner = canvas.addPolygon(table.unpack(getCircle(compassResolution,compassPos,compassRadius-4,0x44444422)))
     -- You gotta have it
-    local north = centerText(canvas.addText({compassPos.x,compassPos.y-compassRadius},"N",0xFFFFFFFF,1.0),4,3)
+    n = centerText(canvas.addText({compassPos.x,compassPos.y-compassRadius},"N",0xFFFFFFFF,1.0),4,3)
+    s = centerText(canvas.addText({compassPos.x,compassPos.y-compassRadius},"S",0xFFFFFFFF,1.0),4,3)
+    e = centerText(canvas.addText({compassPos.x,compassPos.y-compassRadius},"E",0xFFFFFFFF,1.0),4,3)
+    w = centerText(canvas.addText({compassPos.x,compassPos.y-compassRadius},"W",0xFFFFFFFF,1.0),4,3)
     -- Crosshair
     local crosshairVert = canvas.addLine({compassPos.x,compassPos.y-crosshairSize},{compassPos.x,compassPos.y+crosshairSize},crosshairColor,crosshairWidth)
     local crosshairHorz = canvas.addLine({compassPos.x-crosshairSize,compassPos.y},{compassPos.x+crosshairSize,compassPos.y},crosshairColor,crosshairWidth)
@@ -98,6 +107,15 @@ local function draw()
         local me = mod.getMetaByName(ownerName)
         local pingIdx = 1
         local list = {}
+        --
+        local northOffset = rotateVector(0,compassRadius,math.rad(me.yaw))
+        local westOffset = rotateVector(0,compassRadius,math.rad(me.yaw+90))
+        local shift = {x=-3,y=-3}
+        n.setPosition(compassPos.x+northOffset.x+shift.x,compassPos.y+northOffset.y+shift.y)
+        s.setPosition(compassPos.x-northOffset.x+shift.x,compassPos.y-northOffset.y+shift.y)
+        w.setPosition(compassPos.x+westOffset.x+shift.x,compassPos.y+westOffset.y+shift.y)
+        e.setPosition(compassPos.x-westOffset.x+shift.x,compassPos.y-westOffset.y+shift.y)
+        --
         for i=1,pingCount do
             local ping = pings[i]
             if i <= (#mobs) then
@@ -108,7 +126,8 @@ local function draw()
                     else
                         local yoffset = me.eyeOffset.y-mob.eyeOffset.y + mob.y
                         ping.setPosition(screenPos.x,screenPos.y)
-                        ping.setText(string.format(format,mob.name,yoffset))
+                        local name = nameRemap[mob.name] or mob.name
+                        ping.setText(string.format(format,name,yoffset))
                         centerText(ping,1.5,10)
                     end
                 else ping.setText("") 
