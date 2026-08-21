@@ -108,13 +108,13 @@ local function draw()
         local pingIdx = 1
         local list = {}
         --
-        local northOffset = rotateVector(0,compassRadius,math.rad(me.yaw))
-        local westOffset = rotateVector(0,compassRadius,math.rad(me.yaw+90))
+        local northOffset = rotateVector(0,compassRadius,math.rad(-me.yaw))
+        local westOffset = rotateVector(0,compassRadius,math.rad(-me.yaw+90))
         local shift = {x=-3,y=-3}
         n.setPosition(compassPos.x+northOffset.x+shift.x,compassPos.y+northOffset.y+shift.y)
         s.setPosition(compassPos.x-northOffset.x+shift.x,compassPos.y-northOffset.y+shift.y)
-        w.setPosition(compassPos.x+westOffset.x+shift.x,compassPos.y+westOffset.y+shift.y)
-        e.setPosition(compassPos.x-westOffset.x+shift.x,compassPos.y-westOffset.y+shift.y)
+        w.setPosition(compassPos.x-westOffset.x+shift.x,compassPos.y-westOffset.y+shift.y)
+        e.setPosition(compassPos.x+westOffset.x+shift.x,compassPos.y+westOffset.y+shift.y)
         --
         for i=1,pingCount do
             local ping = pings[i]
