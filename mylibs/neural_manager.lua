@@ -228,7 +228,7 @@ end
 local function input()
     while true do
         local event,key,held = os.pullEvent()
-        if event == "key" then
+        if event == "key" and neural.getMetaByName(ownerName).isSneaking then
             if key == menuUp then
                 selectedOption = (((selectedOption-1)+#optionElements-1)%(#optionElements))+1
                 updateSelected()
@@ -312,5 +312,5 @@ end
 
 while true do
    local success, result = pcall(run)
-    if not success then print("Error in Neural Manager. Restarting...") sleep(1.0) end
+    if not success then print(string.format("Error in Neural Manager:\n%s\nRestarting...",result)) sleep(1.0) end
 end
