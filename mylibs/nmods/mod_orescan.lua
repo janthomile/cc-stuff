@@ -6,7 +6,6 @@ local MODULE = {
 }
 --
 local neural
-local ownerName = "Spommicus" -- Owner for skipping
 local pingCount = 64 -- Maximum pings to be displayed
 --
 local function clamp(v,min,max)
@@ -23,7 +22,7 @@ local radarZoomLimits = {0.5,10.0}
 local zoomIncrement = 0.5
 local compassResolution = 32
 local compassRadius = 48
-local n,s,e,w = nil
+local compass = {}
 local crosshairWidth = 0.5
 local crosshairSize = 3.0
 local crosshairColor = getHex(255,255,255,128)
@@ -73,17 +72,11 @@ local function getCircle(resolution,offset,radius,color)
 end
 
 local function drawCompass(canvas)
-    -- Two circles for compassiness
-    local outer = canvas.addPolygon(table.unpack(getCircle(compassResolution,compassPos,compassRadius,0xFFFFFF22)))
-    local inner = canvas.addPolygon(table.unpack(getCircle(compassResolution,compassPos,compassRadius-4,0x11111122)))
-    -- You gotta have it
-    -- n = centerText(canvas.addText({compassPos.x,compassPos.y-compassRadius},"N",0xFFFFFFFF,1.0),4,3)
-    -- s = centerText(canvas.addText({compassPos.x,compassPos.y-compassRadius},"S",0xFFFFFFFF,1.0),4,3)
-    -- e = centerText(canvas.addText({compassPos.x,compassPos.y-compassRadius},"E",0xFFFFFFFF,1.0),4,3)
-    -- w = centerText(canvas.addText({compassPos.x,compassPos.y-compassRadius},"W",0xFFFFFFFF,1.0),4,3)
-    -- Crosshair
-    local crosshairVert = canvas.addLine({compassPos.x,compassPos.y-crosshairSize},{compassPos.x,compassPos.y+crosshairSize},crosshairColor,crosshairWidth)
-    local crosshairHorz = canvas.addLine({compassPos.x-crosshairSize,compassPos.y},{compassPos.x+crosshairSize,compassPos.y},crosshairColor,crosshairWidth)
+    compass = {}
+    table.insert(compass,canvas.addPolygon(table.unpack(getCircle(compassResolution,compassPos,compassRadius,0xFFFFFF22))))
+    table.insert(compass,canvas.addPolygon(table.unpack(getCircle(compassResolution,compassPos,compassRadius-4,0x11111122))))
+    table.insert(compass,canvas.addLine({compassPos.x,compassPos.y-crosshairSize},{compassPos.x,compassPos.y+crosshairSize},crosshairColor,crosshairWidth))
+    table.insert(compass,canvas.addLine({compassPos.x-crosshairSize,compassPos.y},{compassPos.x+crosshairSize,compassPos.y},crosshairColor,crosshairWidth))
 end
 
 -- Get the position on the compass for the block and rotate it based on owner yaw
@@ -106,18 +99,8 @@ end
 setupOres()
 
 -- Optional
-function MODULE:canvas_setup(canvas)
-    canvasSize = {x,y} canvasSize.x,canvasSize.y = canvas.getSize()
-    compassPos = {x=(compassRadius+8),y=canvasSize.y-(compassRadius+8)}
-    for i=1,pingCount do
-        local color = getHex(math.random(128,255),math.random(128,255),math.random(128,255),192)
-        pings[i] = {canvas.addItem({1,1},"minecraft:dirt",0,0),canvas.addText({1,1},"",0xFFFFFFFF,pingScale)}
-    end
-    drawCompass(canvas)
-end
-
--- Optional
 function MODULE:draw(canvas)
+    if not enabled then return end
     local me = neural.getMetaByName(ownerName)
     local pingIdx = 1
     local list = {}
@@ -125,16 +108,12 @@ function MODULE:draw(canvas)
     local northOffset = rotateVector(0,compassRadius,math.rad(-me.yaw))
     local westOffset = rotateVector(0,compassRadius,math.rad(-me.yaw+90))
     local shift = {x=-3,y=-3}
-    -- n.setPosition(compassPos.x+northOffset.x+shift.x,compassPos.y+northOffset.y+shift.y)
-    -- s.setPosition(compassPos.x-northOffset.x+shift.x,compassPos.y-northOffset.y+shift.y)
-    -- w.setPosition(compassPos.x-westOffset.x+shift.x,compassPos.y-westOffset.y+shift.y)
-    -- e.setPosition(compassPos.x+westOffset.x+shift.x,compassPos.y+westOffset.y+shift.y)
     --
     for i=1,#blocks do
-        local pingItem = pings[pingIdx][1]
-        local pingText = pings[pingIdx][2]
         local block = blocks[i]
-        if (ores[block.name]) then
+        if (ores[block.name]) and pingIdx <= pingCount then
+            local pingItem = pings[pingIdx][1]
+            local pingText = pings[pingIdx][2]
             -- print(block.name)
             local screenPos = getCompassRelative({x=block.x,y=block.z},me.yaw)
             if screenPos == nil then ping.setText("")
@@ -173,15 +152,28 @@ function MODULE:sim(data)
 end
 
 -- Required
-function MODULE:enable(interface)
-    neural = interface
+function MODULE:enable(data)
+    neural = data.neural
     pings = {}
-    print("Ore Scanner Enabled")
+    --
+    local canvas = data.canvas
+    canvasSize = {x,y} canvasSize.x,canvasSize.y = canvas.getSize()
+    compassPos = {x=(compassRadius+8),y=canvasSize.y-(compassRadius+8)}
+    for i=1,pingCount do
+        local color = getHex(math.random(128,255),math.random(128,255),math.random(128,255),192)
+        pings[i] = {canvas.addItem({1,1},"minecraft:dirt",0,0),canvas.addText({1,1},"",0xFFFFFFFF,pingScale)}
+    end
+    drawCompass(canvas)
 end
 
 -- Required
-function MODULE:disable(interface)
-    print("Ore Scanner Disabled")
+function MODULE:disable(data)
+    for i=1,#pings do
+        pings[i][1].remove()
+    end
+    for i=1,#compass do
+        compass[i].remove()
+    end
 end
 
 return MODULE

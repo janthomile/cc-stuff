@@ -5,7 +5,7 @@ local MODULE = {
 }
 --
 local neural
-local ownerName = "Spommicus" -- Owner for skipping
+local ownerName -- Owner for skipping
 local pingCount = 64 -- Maximum pings to be displayed
 local nameRemap = {
     ["glass_item_frame"]="gif",
@@ -26,16 +26,19 @@ local radarZoomLimits = {0.5,5.0}
 local zoomIncrement = 0.5
 local compassResolution = 32
 local compassRadius = 48
-local n,s,e,w = nil
+local compass = {}
+local n,s,e,w = nil -- Cardinal Direction TextObjects
 local crosshairWidth = 0.5
 local crosshairSize = 3.0
 local crosshairColor = getHex(255,255,255,128)
+local crosshair = {}
 local pings = {}
 local mobs = {}
 local prevMobCount = 0
 local nameColor = 0xFFFFFFBB
 local pingScale = 0.33
 local format = "%s\n%+.1f"
+local setupFinished = false
 --
 
 local function rotateVector(x,y,angle)
@@ -71,16 +74,17 @@ end
 
 local function drawCompass(canvas)
     -- Two circles for compassiness
-    local outer = canvas.addPolygon(table.unpack(getCircle(compassResolution,compassPos,compassRadius,0xFFFFFF22)))
-    local inner = canvas.addPolygon(table.unpack(getCircle(compassResolution,compassPos,compassRadius-4,0x11111122)))
+    compass = {}
+    table.insert(compass,canvas.addPolygon(table.unpack(getCircle(compassResolution,compassPos,compassRadius,0xFFFFFF22))))
+    table.insert(compass,canvas.addPolygon(table.unpack(getCircle(compassResolution,compassPos,compassRadius-4,0x11111122))))
     -- You gotta have it
     n = centerText(canvas.addText({compassPos.x,compassPos.y-compassRadius},"N",0xFFFFFFFF,1.0),4,3)
     s = centerText(canvas.addText({compassPos.x,compassPos.y-compassRadius},"S",0xFFFFFFFF,1.0),4,3)
     e = centerText(canvas.addText({compassPos.x,compassPos.y-compassRadius},"E",0xFFFFFFFF,1.0),4,3)
     w = centerText(canvas.addText({compassPos.x,compassPos.y-compassRadius},"W",0xFFFFFFFF,1.0),4,3)
     -- Crosshair
-    local crosshairVert = canvas.addLine({compassPos.x,compassPos.y-crosshairSize},{compassPos.x,compassPos.y+crosshairSize},crosshairColor,crosshairWidth)
-    local crosshairHorz = canvas.addLine({compassPos.x-crosshairSize,compassPos.y},{compassPos.x+crosshairSize,compassPos.y},crosshairColor,crosshairWidth)
+    table.insert(compass,canvas.addLine({compassPos.x,compassPos.y-crosshairSize},{compassPos.x,compassPos.y+crosshairSize},crosshairColor,crosshairWidth))
+    table.insert(compass,canvas.addLine({compassPos.x-crosshairSize,compassPos.y},{compassPos.x+crosshairSize,compassPos.y},crosshairColor,crosshairWidth))
 end
 
 -- Get the position on the compass for the mob and rotate it based on owner yaw
@@ -91,19 +95,9 @@ local function getCompassRelative(pos, yaw)
 end
 
 -- Optional
-function MODULE:canvas_setup(canvas)
-    canvasSize = {x,y} canvasSize.x,canvasSize.y = canvas.getSize()
-    compassPos = {x=(compassRadius+8),y=canvasSize.y-(compassRadius+8)}
-    for i=1,pingCount do
-        local color = getHex(math.random(128,255),math.random(128,255),math.random(128,255),192)
-        pings[i] = canvas.addText({1,1},"",color,pingScale)
-    end
-    drawCompass(canvas)
-end
-
--- Optional
 function MODULE:draw(canvas)
     local me = neural.getMetaByName(ownerName)
+    if not self.enabled then return end
     local pingIdx = 1
     local list = {}
     --
@@ -154,14 +148,30 @@ function MODULE:sim(data)
 end
 
 -- Required
-function MODULE:enable(interface)
-    neural = interface
-    print("Mob Radar Enabled")
+function MODULE:enable(data)
+    pings = {}
+    neural = data.neural
+    ownerName = data.ownerName
+    --
+    local canvas = data.canvas
+    canvasSize = {x,y} canvasSize.x,canvasSize.y = canvas.getSize()
+    compassPos = {x=(compassRadius+8),y=canvasSize.y-(compassRadius+8)}
+    for i=1,pingCount do
+        local color = getHex(math.random(128,255),math.random(128,255),math.random(128,255),192)
+        pings[i] = canvas.addText({1,1},"",color,pingScale)
+    end
+    drawCompass(canvas)
 end
 
 -- Required
-function MODULE:disable(interface)
-    print("Mob Radar Disabled")
+function MODULE:disable(data)
+    n.remove() s.remove() e.remove() w.remove()
+    for i=1,#pings do
+        pings[i].remove()
+    end
+    for i=1,#compass do
+        compass[i].remove()
+    end
 end
 
 return MODULE

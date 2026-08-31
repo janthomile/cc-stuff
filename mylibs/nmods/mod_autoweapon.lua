@@ -2,7 +2,7 @@ local MODULE = {
     name = "Autoweapon", -- Required
     enabled = false, -- Required
 }
-local ownerName = "Spommicus"
+local ownerName
 local rangedTime = 4.0
 local swingTicks = 4
 --
@@ -12,19 +12,6 @@ local tick = 1
 --
 local melee = {"minecraft:diamond_sword"}
 local ranged = {"plethora:module_laser"}
-
--- -- Optional
--- function MODULE:draw(canvas)
---     if (self.tick % 100 == 0) then
---         print("Testmodule: Draw call")
---     end
---     -- print("Testmodule Print: Hello!")
--- end
-
--- -- Optional
--- function MODULE:canvas_setup(canvas)
---     print("Nothing to contribute to the canvas!")
--- end
 
 local function setupWeapons()
     local mtable = {}
@@ -69,15 +56,14 @@ function MODULE:input(event,key,held)
 end
 
 -- Required
-function MODULE:enable(interface)
-    neural = interface
+function MODULE:enable(data)
+    ownerName = data.ownerName
+    neural = data.neural
     tick = 1
-    print("Autolaser Enabled")
 end
 
 -- Required
-function MODULE:disable(interface)
-    print("Autolaser Disabled")
+function MODULE:disable(data)
 end
 
 return MODULE

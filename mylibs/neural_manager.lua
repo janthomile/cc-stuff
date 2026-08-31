@@ -4,7 +4,6 @@ local args = {...}
 local neural = peripheral.find("neuralInterface")
 local canvas = neural.canvas()
 local canvasSize = {x,y} canvasSize.x,canvasSize.y = canvas.getSize()
-local canvasResetting = true
 local drawDelay = 0.05
 local simDelay = 0.05
 local lerpSpeed = 10.0
@@ -168,38 +167,30 @@ local function loadModules()
         table.insert(modules,moduleLoaded)
     end
 end
-local function resetCanvas()
-    canvasResetting = true
-    canvas.clear()
-    genHudElements()
-    updateSelected()
-    for i=1,#modules do
-        if modules[i].enabled and modules[i].canvas_setup then
-            modules[i]:canvas_setup(canvas)
-        end
-    end
-    canvasResetting = false
-end
 
 local function toggleModule(idx,enable)
     local _module = modules[idx]
-    _module.enabled = enable
     if not _module then return end
+    local data = {neural=neural,canvas=canvas,ownerName=ownerName}
+
     if enable then
+        _module:enable(data)
         if _module.doScan then scanCount = scanCount + 1 end
         if _module.doSense then senseCount = senseCount + 1 end
-        _module:enable(neural)
-    else _module:disable(neural)
+    else
+        _module:disable(data)
         if _module.doScan then scanCount = scanCount - 1 end
         if _module.doSense then senseCount = senseCount - 1 end
     end
+
+    _module.enabled = enable
     
-    resetCanvas()
     modSettings = modSettings or initOrGetSettings()
     modSettings[idx].enabled = enable
-    -- print("Toggled module \"" .. modSettings[idx].name .. "\"")
     settings.set(moduleSettingKey,modSettings)
     settings.save()
+    if enable then print (string.format("Enabled Module \"%s\".",_module.name))
+    else print (string.format("Disabled Module \"%s\".",_module.name)) end
 end
 local function listModules()
     local modSettings = initOrGetSettings()
@@ -254,7 +245,6 @@ end
 -- Use available "ping" slots to display mob locations on compass.
 local function draw()
     while true do
-        if not canvasResetting then
             animate(drawDelay)
             
             for i=1,#modules do
@@ -263,7 +253,6 @@ local function draw()
                 end
             end
             sleep(drawDelay)
-        end
     end
 end
 
@@ -282,28 +271,33 @@ end
 
 local function setup()
     loadModules()
-    for i=1,#modules do
-        if modules[i].enabled and modules[i].enable then
-            toggleModule(i,true)
-        end
-    end
+    --
     for i=1,#modules do
         local option = {}
         option[1] = modules[i].name
         -- option[2] = false
         options[i] = option
     end
-    resetCanvas()
+    --
+    canvas.clear()
+    genHudElements()
+    updateSelected()
+    --
+    for i=1,#modules do
+        if modules[i].enabled and modules[i].enable then
+            toggleModule(i,true)
+        end
+    end
+
 end
 
 if not handleArguments() then return end
 setup()
-resetCanvas()
 
 local function run()
     parallel.waitForAll(
-        draw,
         input,
+        draw,
         sim
     )
 end
