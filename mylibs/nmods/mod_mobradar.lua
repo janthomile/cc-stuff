@@ -19,7 +19,6 @@ local function getHex(r,g,b,a)
     return (r*0x1000000)+(g*0x10000)+(b*0x100)+a
 end
 -- Radar variables
-local canvasSize
 local compassPos
 local radarZoom = 2.0
 local radarZoomLimits = {0.5,5.0}
@@ -95,9 +94,10 @@ local function getCompassRelative(pos, yaw)
 end
 
 -- Optional
-function MODULE:draw(canvas)
-    local me = neural.getMetaByName(ownerName)
-    if not self.enabled then return end
+function MODULE:draw(data)
+    local me = data.owner
+    local mobs = data.mobs or {}
+    if (not self.enabled) or not me then return end
     local pingIdx = 1
     local list = {}
     --
@@ -132,20 +132,20 @@ function MODULE:draw(canvas)
 end
 
 -- Optional
-function MODULE:input(event,key,held)
-    if event == "key" then
-        if key == keys.minus then
+function MODULE:input(event)
+    if event[1] == "key" then
+        if event[2] == keys.minus then
             radarZoom = clamp(radarZoom - zoomIncrement,radarZoomLimits[1],radarZoomLimits[2])
-        elseif key == keys.equals then
+        elseif event[2] == keys.equals then
             radarZoom = clamp(radarZoom + zoomIncrement,radarZoomLimits[1],radarZoomLimits[2])
         end
     end
 end
 
--- Optional
-function MODULE:sim(data)
-    mobs = data.mobs or {}
-end
+-- -- Optional
+-- function MODULE:sim(data)
+--     mobs = data.mobs or {}
+-- end
 
 -- Required
 function MODULE:enable(data)
@@ -154,7 +154,7 @@ function MODULE:enable(data)
     ownerName = data.ownerName
     --
     local canvas = data.canvas
-    canvasSize = {x,y} canvasSize.x,canvasSize.y = canvas.getSize()
+    local canvasSize = data.canvasSize
     compassPos = {x=(compassRadius+8),y=canvasSize.y-(compassRadius+8)}
     for i=1,pingCount do
         local color = getHex(math.random(128,255),math.random(128,255),math.random(128,255),192)

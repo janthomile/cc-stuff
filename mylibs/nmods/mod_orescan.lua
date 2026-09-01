@@ -1,8 +1,7 @@
 local MODULE = {
     name = "Ore Scanner", -- Required
     enabled = false, -- Required
-    doScan = true,
-    doSense = false
+    doScan = true
 }
 --
 local neural
@@ -15,7 +14,7 @@ local function getHex(r,g,b,a)
     return (r*0x1000000)+(g*0x10000)+(b*0x100)+a
 end
 -- Radar variables
-local canvasSize
+local ownerName
 local compassPos
 local radarZoom = 2.0
 local radarZoomLimits = {0.5,10.0}
@@ -99,16 +98,13 @@ end
 setupOres()
 
 -- Optional
-function MODULE:draw(canvas)
-    if not enabled then return end
-    local me = neural.getMetaByName(ownerName)
+function MODULE:draw(data)
+    local me = data.owner
+    blocks = data.blocks or {}
     local pingIdx = 1
     local list = {}
     --
-    local northOffset = rotateVector(0,compassRadius,math.rad(-me.yaw))
-    local westOffset = rotateVector(0,compassRadius,math.rad(-me.yaw+90))
-    local shift = {x=-3,y=-3}
-    --
+    if (not self.enabled) or (not me) then return end
     for i=1,#blocks do
         local block = blocks[i]
         if (ores[block.name]) and pingIdx <= pingCount then
@@ -136,28 +132,29 @@ function MODULE:draw(canvas)
 end
 
 -- Optional
-function MODULE:input(event,key,held)
-    if event == "key" then
-        if key == keys.minus then
+function MODULE:input(event)
+    if event[1] == "key" then
+        if event[2] == keys.minus then
             radarZoom = clamp(radarZoom - zoomIncrement,radarZoomLimits[1],radarZoomLimits[2])
-        elseif key == keys.equals then
+        elseif event[2] == keys.equals then
             radarZoom = clamp(radarZoom + zoomIncrement,radarZoomLimits[1],radarZoomLimits[2])
         end
     end
 end
 
--- Optional
-function MODULE:sim(data)
-    blocks = data.blocks or {}
-end
+-- -- Optional
+-- function MODULE:sim(data)
+--     blocks = data.blocks or {}
+-- end
 
 -- Required
 function MODULE:enable(data)
     neural = data.neural
+    ownerName = data.ownerName
     pings = {}
     --
     local canvas = data.canvas
-    canvasSize = {x,y} canvasSize.x,canvasSize.y = canvas.getSize()
+    local canvasSize = data.canvasSize
     compassPos = {x=(compassRadius+8),y=canvasSize.y-(compassRadius+8)}
     for i=1,pingCount do
         local color = getHex(math.random(128,255),math.random(128,255),math.random(128,255),192)
@@ -170,6 +167,7 @@ end
 function MODULE:disable(data)
     for i=1,#pings do
         pings[i][1].remove()
+        pings[i][2].remove()
     end
     for i=1,#compass do
         compass[i].remove()

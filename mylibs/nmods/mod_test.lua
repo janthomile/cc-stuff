@@ -13,7 +13,8 @@ local rect = nil
 
 -- Optional
 -- Note that the standard canvas size is 512 x 288 (for some reason)
-function MODULE:draw(canvas)
+-- `data` contains relevant updated information {owner,mobs,blocks}
+function MODULE:draw(data)
     if not self.enabled then return end -- You should put this line right before using canvas objects. Usually once is fine.
     if (tick % 100 == 0) then
         print("Testmodule: Draw call")
@@ -22,6 +23,7 @@ function MODULE:draw(canvas)
 end
 
 -- Optional
+-- `data` contains relevant updated information {owner,mobs,blocks}
 function MODULE:sim(data)
     tick = tick + 1
     if ((tick % 100) == 0) then
@@ -30,20 +32,24 @@ function MODULE:sim(data)
 end
 
 -- Optional
-function MODULE:input(event,key,held)
-    if event == "key" then
-        print("Testmodule: Key pressed: " .. key)
-    elseif event == "key_up" then
-        print("Testmodule: Key released: " .. key)
+-- `event` is the whole event table from os.pullEvent()
+function MODULE:input(event)
+    if event[1] == "key" then
+        print("Testmodule: Key pressed: " .. event[2])
+    elseif event[1] == "key_up" then
+        print("Testmodule: Key released: " .. event[2])
+    elseif event[1] ~= "timer" then
+        print(event[1])
     end
+    return false -- Returns whether the input was consumed
 end
 
 -- Required
--- `data` contains useful dependency-injection information: {neural,canvas,ownerName}
+-- `data` contains useful dependency-injection information: {ownerName,neural,canvas,canvasSize,speakers}
 function MODULE:enable(data)
     -- Make sure to keep track of your canvas objects...
     local canvas = data.canvas
-    local size = {x,y} size.x,size.y=canvas.getSize()
+    local size = data.canvasSize
     text = canvas.addText({size.x-19*3,1},"TEST MODULE ENABLED",0xFFFFFFFF,0.5)
     rect = canvas.addRectangle(0,0,size.x,size.y,0x77111111)
 end

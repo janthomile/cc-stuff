@@ -1,11 +1,16 @@
-local ownerName = "Spommicus"
+local ownerName
 -- Primary references
 local args = {...}
 local neural = peripheral.find("neuralInterface")
-local canvas = neural.canvas()
-local canvasSize = {x,y} canvasSize.x,canvasSize.y = canvas.getSize()
+local canvas
+local neuralData
+local speakerLeft,speakerRight
+local modem
+local speaker
+local canvasSize
 local drawDelay = 0.05
 local simDelay = 0.05
+local updateDelay = 0.05
 local lerpSpeed = 10.0
 -- Keys
 local menuUp = keys.up
@@ -14,6 +19,7 @@ local menuSelect = keys.right
 local menuBack = keys.left
 -- Modules
 local moduleSettingKey = "neuralman.modules"
+local ownerSettingKey = "neuralman.ownerName"
 local modules = {} -- format {name:"",module:{draw:fun,input:fun,sim:fun}}
 local scanCount, senseCount = 0,0
 -- Utils
@@ -25,6 +31,9 @@ local function lerp(a, b, t)
     return a + (b - a) * t
 end
 -- Menu constants
+local navigationSound = "minecraft:block.copper.step"
+local toggleOnSound = "minecraft:block.copper_bulb.turn_on"
+local toggleOffSound = "minecraft:block.copper_bulb.turn_off"
 local bgColor = getHex(128,128,128,128)
 local optionTextColor = getHex(255,255,255,255)
 local rectColor = {64,64,64,128}
@@ -104,6 +113,17 @@ end
 --
 
 -- Startup and Modules
+local function loadOwner()
+    ownerName = settings.get(ownerSettingKey)
+    if not ownerName then error("Error: Owner not set! Please run `neural_manager.lua setowner <username>` before running this program!",0) return false end
+    print("Loaded NeuralManager with Owner: " .. ownerName)
+    return true
+end
+local function setOwner(name)
+    settings.set(ownerSettingKey,name)
+    settings.save()
+    print("Set owner username to: " .. name)
+end
 local function initOrGetSettings()
     local modSettings = settings.get(moduleSettingKey)
     if modSettings == nil then
@@ -167,11 +187,21 @@ local function loadModules()
         table.insert(modules,moduleLoaded)
     end
 end
-
+local function swapModules(idx,swapIdx)
+    idx,swapIdx = tonumber(idx),tonumber(swapIdx)
+    local modSettings = initOrGetSettings()
+    local mod,swapMod = modSettings[idx],modSettings[swapIdx]
+    if (mod == nil) then print(string.format("No module exists at index '%s'.",idx)) return end
+    if (swapMod == nil) then print(string.format("No module exists at index '%s'.",swapIdx)) return end
+    modSettings[idx],modSettings[swapIdx] = swapMod,mod
+    settings.set(moduleSettingKey,modSettings)
+    settings.save()
+    print(string.format("Swapped module entries.\n\tNew indexes:'%s:%s' and '%s:%s'.",swapIdx,mod["name"],idx,swapMod["name"]))
+end
 local function toggleModule(idx,enable)
     local _module = modules[idx]
     if not _module then return end
-    local data = {neural=neural,canvas=canvas,ownerName=ownerName}
+    local data = {neural=neural,canvas=canvas,canvasSize=canvasSize,ownerName=ownerName,modem=modem,speakers=((speakerLeft ~= nil or speakerRight ~= nil) and {left=speakerLeft,right=speakerRight} or nil)}
 
     if enable then
         _module:enable(data)
@@ -197,48 +227,58 @@ local function listModules()
     local list = {}
     if next(modSettings) == nil then print("No modules found") return end
     for i=1,#modSettings do
-        if next(modSettings[i]) ~= nil then table.insert(list,modSettings[i]["name"]) end
+        if next(modSettings[i]) ~= nil then table.insert(list,string.format("[%s]:%s",i,modSettings[i]["name"])) end
     end
     print(string.format("Modules:\n\t%s",table.concat(list,",")))
 end
 local function handleArguments()
     if next(args) == nil then return true
+    elseif args[1] == "setowner" then setOwner(args[2]) return false
     elseif args[1] == "addmod" then addModule(args[2]) return false
     elseif args[1] == "rmmod" then removeModule(args[2]) return false
-    elseif args[1] == "listmod" then listModules() return false
-    elseif args[1] == "help" then print("Spommicus's Neural Manager\nAvailable arguments:\nhelp\n-- Show this screen --\naddmod <path>\n-- Add a module at the given path --\nrmmod <name>\n-- Remove a module with with the given name --\nlistmod\n-- Lists modules by their names --") return false
+    elseif args[1] == "list" then listModules() return false
+    elseif args[1] == "swap" then swapModules(args[2],args[3]) return false
+    elseif args[1] == "help" then print("Spommicus's Neural Manager\nAvailable arguments:\nhelp\n-- Show this screen --\nsetowner <username>\n-- Set the working username of the owner. This is necessary for many modules.\n-- Add a module at the given path --\nrmmod <name>\n-- Remove a module with with the given name --\nswap <idx> <swapIdx>\n-- Swaps the module order at `idx` and `swapIdx` --\nlist\n-- Lists modules by their names and indices --") return false
     else print("Unknown argument \"" .. args[1] .. "\".") return false
     end
 end
 
 local function toggleOption(idx)
     toggleModule(idx,not modules[idx].enabled)
+    if speaker then
+        if modules[idx].enabled then speaker.playSound(toggleOnSound,0.1,1.2)
+        else speaker.playSound(toggleOffSound,0.1,1.2) end end
     updateSelected()
 end
 
 local function input()
     while true do
-        local event,key,held = os.pullEvent()
-        if event == "key" and neural.getMetaByName(ownerName).isSneaking then
-            if key == menuUp then
-                selectedOption = (((selectedOption-1)+#optionElements-1)%(#optionElements))+1
-                updateSelected()
-            elseif key == menuDown then
-                selectedOption = (((selectedOption-1)+#optionElements+1)%(#optionElements))+1
-                updateSelected()
-            elseif key == menuSelect then
-                toggleOption(selectedOption)
-            elseif key == menuBack then
-            end
-        elseif event == "key_up" then
-        end
-
-        for i=1,#modules do
+        local event = {os.pullEvent()}
+        local consumeInput = false
+        local i = 0
+        while (i < #modules) and (not consumeInput) do
+            i = i + 1
             if modules[i].enabled and modules[i].input then
-                modules[i]:input(event,key,held)
+                consumeInput = modules[i]:input(event)
             end
         end
-
+        if not consumeInput then
+            if event[1] == "key" and neuralData.owner.isSneaking then
+                if event[2] == menuUp then
+                    selectedOption = (((selectedOption-1)+#optionElements-1)%(#optionElements))+1
+                    if speaker then speaker.playSound(navigationSound,0.08,0.6) end
+                    updateSelected()
+                elseif event[2] == menuDown then
+                    selectedOption = (((selectedOption-1)+#optionElements+1)%(#optionElements))+1
+                    if speaker then speaker.playSound(navigationSound,0.08,0.5) end
+                    updateSelected()
+                elseif event[2] == menuSelect then
+                    toggleOption(selectedOption)
+                elseif event[2] == menuBack then
+                end
+            elseif event[1] == "key_up" then
+            end
+        end
     end
 end
 
@@ -246,10 +286,9 @@ end
 local function draw()
     while true do
             animate(drawDelay)
-            
             for i=1,#modules do
                 if modules[i].enabled and modules[i].draw then
-                    modules[i]:draw(canvas)
+                    modules[i]:draw(neuralData)
                 end
             end
             sleep(drawDelay)
@@ -258,18 +297,39 @@ end
 
 local function sim()
     while true do
-        local data = {mobs = ((neural.sense and senseCount > 0) and neural.sense() or nil),
-            blocks = ((neural.scan and scanCount > 0) and neural.scan() or nil)}
         for i=1,#modules do
             if modules[i].enabled and modules[i].sim then
-                modules[i]:sim(data)
+                modules[i]:sim(neuralData)
             end
         end
         sleep(simDelay)
     end
 end
 
+local function update()
+    while true do
+        neuralData.owner = neural.getMetaByName(ownerName)
+        sleep(updateDelay)
+    end
+end
+
+local function sense()
+    while true do
+        neuralData.mobs = ((neural.sense and senseCount > 0) and neural.sense() or nil)
+        neuralData.blocks = ((neural.scan and scanCount > 0) and neural.scan() or nil)
+        sleep(senseDelay)
+    end
+end
+
 local function setup()
+    neural = peripheral.find("neuralInterface")
+    canvas = neural.canvas()
+    modem = peripheral.find("modem",function(n,v)return v.isWireless()end)
+    neuralData = {owner=nil,blocks=nil,mobs=nil}
+    speakerLeft,speakerRight = (peripheral.getType("left")=="speaker") and peripheral.wrap("left"),(peripheral.getType("right")=="speaker") and peripheral.wrap("right")
+    speaker = speakerLeft or speakerRight
+    canvasSize = {x,y} canvasSize.x,canvasSize.y = canvas.getSize()
+
     loadModules()
     --
     for i=1,#modules do
@@ -288,23 +348,40 @@ local function setup()
             toggleModule(i,true)
         end
     end
-
+    return true
 end
+
+-- local function run()
+    
+-- end
 
 if not handleArguments() then return end
-setup()
-
-local function run()
-    parallel.waitForAll(
-        input,
-        draw,
-        sim
-    )
-end
-
--- run()
+if not loadOwner() then return false end
 
 while true do
-   local success, result = pcall(run)
-    if not success then print(string.format("Error in Neural Manager:\n%s\nRestarting...",result)) sleep(1.0) end
+    local s,r = pcall(neural.canvas)
+    if s then
+        if not setup() then return end
+
+        if speakerLeft then speakerLeft.playNote("bit",0.15,24) end
+        if speakerRight then speakerRight.playNote("bit",0.15,0) end
+
+        local success, result = pcall(
+            function()
+                parallel.waitForAll(
+                    update,
+                    input,
+                    draw,
+                    sim,
+                    sense
+                )
+            end
+        )
+        if not success then
+            print(string.format("Error in Neural Manager:\n%s\nRestarting...",result))
+            sleep(1.0)
+        end
+    end
+    print("Owner Unavailable. Waiting...")
+    sleep(1.0)
 end
